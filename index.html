@@ -213,8 +213,17 @@
 
         function logout() { location.reload(); }
 
+        // --- 核心修正點：日期初始化函數 ---
         function initApp() {
-            document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
+            // 獲取當前本地時間 YYYY-MM-DD
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day}`;
+            
+            document.getElementById('dateInput').value = formattedDate;
+            
             const savedHeight = localStorage.getItem(`health_os_height_${currentUserName}`);
             document.getElementById('heightInput').value = savedHeight || "";
             updateSelectors();
