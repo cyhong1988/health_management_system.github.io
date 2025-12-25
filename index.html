@@ -171,6 +171,56 @@
         let charts = {};
         let currentRange = 'selected_month';
 
+// 替換您的 GAS URL
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyzD-jRK6VdvDpci-Y8Bl-tMynNbj7tZY1JlLF5TZ1Zt5rDqegcfUs2HC73M_5WkkUk/exec";
+
+// 修改後的登入函數：登入時先從雲端下載資料
+async function login(n) {
+    currentUserName = n || document.getElementById('userNameInput').value.trim();
+    if (!currentUserName) return alert("請輸入名稱");
+    
+    let list = JSON.parse(localStorage.getItem('health_os_user_list')) || [];
+    if (!list.includes(currentUserName)) list.push(currentUserName);
+    localStorage.setItem('health_os_user_list', JSON.stringify(list));
+    
+    // 從 Google Sheet 抓取資料
+    try {
+        const response = await fetch(`${GAS_URL}?userName=${encodeURIComponent(currentUserName)}`);
+        healthData = await response.json();
+    } catch (e) {
+        console.log("雲端無資料，載入本地備份");
+        healthData = JSON.parse(localStorage.getItem(`health_os_data_${currentUserName}`)) || [];
+    }
+
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'flex';
+    document.getElementById('displayUserName').innerText = `目前：${currentUserName}`;
+    initApp();
+}
+
+// 修改後的儲存函數：存入 LocalStorage 同時上傳至 Google Sheet
+async function saveAndRefresh() {
+    // 1. 先存在本地（防斷網）
+    localStorage.setItem(`health_os_data_${currentUserName}`, JSON.stringify(healthData));
+    
+    // 2. 上傳到雲端
+    try {
+        await fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                userName: currentUserName,
+                data: healthData
+            })
+        });
+        console.log("雲端同步成功");
+    } catch (e) {
+        alert("雲端同步失敗，資料目前僅存於此裝置");
+    }
+    
+    updateCharts();
+    updateHistoryList();
+}
+        
         function renderUserList() {
             const list = JSON.parse(localStorage.getItem('health_os_user_list')) || [];
             const container = document.getElementById('userListContainer');
@@ -196,20 +246,6 @@
             }
         }
 
-        function login(n) {
-            currentUserName = n || document.getElementById('userNameInput').value.trim();
-            if (!currentUserName) return alert("請輸入名稱");
-            let list = JSON.parse(localStorage.getItem('health_os_user_list')) || [];
-            if (!list.includes(currentUserName)) list.push(currentUserName);
-            localStorage.setItem('health_os_user_list', JSON.stringify(list));
-            
-            document.getElementById('loginPage').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'flex';
-            
-            document.getElementById('displayUserName').innerText = `目前：${currentUserName}`;
-            healthData = JSON.parse(localStorage.getItem(`health_os_data_${currentUserName}`)) || [];
-            initApp();
-        }
 
         function logout() { location.reload(); }
 
@@ -266,12 +302,6 @@
                 saveAndRefresh();
             }
         };
-
-        function saveAndRefresh() {
-            localStorage.setItem(`health_os_data_${currentUserName}`, JSON.stringify(healthData));
-            updateCharts();
-            updateHistoryList();
-        }
 
         function updateSelectors() {
             const now = new Date();
