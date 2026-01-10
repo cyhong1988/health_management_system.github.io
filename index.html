@@ -339,15 +339,18 @@ async function saveAndRefresh() {
 function generateShareText(title, dataArr) {
     let msg = `【${currentUserName} - ${title}】\n\n`;
     dataArr.forEach((item, index) => {
-        // 確保日期只取前 10 位 (YYYY-MM-DD) 並轉換斜線
+        // 確保日期格式為 YYYY-MM-DD
         const pureDate = item.date.includes('T') ? item.date.split('T')[0] : item.date;
-        const d = pureDate.split('-');
         
-        // 輸出格式：11/20
-        msg += `${d[1]}/${d[2]}\n體重${item.weight} / 體脂${item.fat}% / 內臟${item.vFat}\n\n`;
+        // 將原本的 2026-01-06 轉換為 2026/01/06
+        const displayDate = pureDate.replace(/-/g, '/');
+        
+        // 組合訊息
+        msg += `${displayDate}\n體重${item.weight} / 體脂${item.fat}% / 內臟${item.vFat}\n\n`;
     });
     return msg.trim();
 }
+
 
         window.handleSave = function(shareType) {
             const date = document.getElementById('dateInput').value;
