@@ -427,35 +427,63 @@ function generateShareText(title, dataArr) {
         window.setRange = (r) => { currentRange = r; document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('active', b.id === `btn-${r}`)); updateCharts(); };
 
         window.processBatchImport = function() {
-            const text = document.getElementById('importArea').value;
-            if (!text.trim()) return alert("請輸入內容");
-            const yearMatch = text.match(/20\d{2}/);
-            let defaultYear = yearMatch ? yearMatch[0] : document.getElementById('filterYear').value;
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-            let importedCount = 0;
-            for (let i = 0; i < lines.length; i++) {
-                const dateMatch = lines[i].match(/^(\d{1,2})\/(\d{1,2})$/);
-                if (dateMatch && i + 1 < lines.length) {
-                    const fullDate = `${defaultYear}-${dateMatch[1].padStart(2, '0')}-${dateMatch[2].padStart(2, '0')}`;
-                    const getVal = (label) => {
-                        const m = lines[i+1].match(new RegExp(`${label}\\s*[:：]?\\s*([\\d.]+)`));
-                        return m ? parseFloat(m[1]) : 0;
-                    };
-                    const entry = { date: fullDate, weight: getVal('體重'), fat: getVal('體脂'), vFat: getVal('內臟') };
-                    if (entry.weight > 0) {
-                        const idx = healthData.findIndex(d => d.date === entry.date);
-                        if (idx > -1) healthData[idx] = entry; else healthData.push(entry);
-                        importedCount++; i++;
-                    }
-                }
+    const text = document.getElementById('importArea').value;
+    if (!text.trim()) return alert("請輸入內容");
+    
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    let importedCount = 0;
+    
+    // 預設年份（若日期沒寫年份時備用）
+    let lastYear = new Date().getFullYear();
+
+    for (let i = 0; i < lines.length; i++) {
+        // 1. 匹配日期：支援 2025/12/24 或 12/24
+        const dateMatch = lines[i].match(/(?:(\d{4})\/)?(\d{1,2})\/(\d{1,2})/);
+        
+        if (dateMatch && i + 1 < lines.length) {
+            const y = dateMatch[1] || lastYear;
+            const m = dateMatch[2].padStart(2, '0');
+            const d = dateMatch[3].padStart(2, '0');
+            const fullDate = `${y}-${m}-${d}`;
+            
+            // 更新最後看到的年份
+            if (dateMatch[1]) lastYear = dateMatch[1];
+
+            // 2. 匹配下一行的數據
+            const dataLine = lines[i+1];
+            const getVal = (label) => {
+                // 修改正則：支援「體重61.4」或「體脂15.2%」，過濾掉 % 符號
+                const regex = new RegExp(`${label}\\s*[:：]?\\s*([\\d.]+)`);
+                const m = dataLine.match(regex);
+                return m ? parseFloat(m[1]) : 0;
+            };
+
+            const entry = { 
+                date: fullDate, 
+                weight: getVal('體重'), 
+                fat: getVal('體脂'), 
+                vFat: getVal('內臟') 
+            };
+
+            if (entry.weight > 0) {
+                const idx = healthData.findIndex(item => item.date === entry.date);
+                if (idx > -1) healthData[idx] = entry; else healthData.push(entry);
+                importedCount++;
+                i++; // 跳過已處理的數據行
             }
-            if (importedCount > 0) {
-                healthData.sort((a, b) => new Date(a.date) - new Date(b.date));
-                saveAndRefresh();
-                alert(`成功匯入 ${importedCount} 筆。`);
-                document.getElementById('importArea').value = "";
-            } else { alert("格式不符。"); }
-        };
+        }
+    }
+
+    if (importedCount > 0) {
+        healthData.sort((a, b) => new Date(a.date) - new Date(b.date));
+        saveAndRefresh();
+        alert(`成功解析並匯入 ${importedCount} 筆數據。`);
+        document.getElementById('importArea').value = "";
+    } else { 
+        alert("格式不符，請確認輸入內容是否包含「日期」與「體重」等關鍵字。"); 
+    }
+};
+
 
         renderUserList();
     </script>
